@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { toBoolean, UniqueSelectionDispatcher } from '@angular-mdc/web/common';
 import { MdcRipple } from '@angular-mdc/web/ripple';
-import { MdcFormFieldControl } from '@angular-mdc/web/form-field';
+import { MdcFormField, MdcFormFieldControl } from '@angular-mdc/web/form-field';
 
 import { MDCRadioFoundation } from '@material/radio/index';
 
@@ -86,7 +86,7 @@ export class MdcRadioChange {
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     MdcRipple,
-    [{ provide: MdcFormFieldControl, useExisting: MdcRadio }]
+    { provide: MdcFormFieldControl, useExisting: MdcRadio }
   ]
 })
 export class MdcRadio implements AfterViewInit, OnDestroy, MdcFormFieldControl<any> {
@@ -96,15 +96,15 @@ export class MdcRadio implements AfterViewInit, OnDestroy, MdcFormFieldControl<a
   @Input() id: string = this._uniqueId;
 
   /** Analog to HTML 'name' attribute used to group radios for unique selection. */
-  @Input() name: string;
+  @Input() name!: string;
 
   @Input() tabIndex: number = 0;
 
-  @Input('aria-label') ariaLabel: string;
-  @Input('aria-labelledby') ariaLabelledby: string;
+  @Input('aria-label') ariaLabel?: string;
+  @Input('aria-labelledby') ariaLabelledby?: string;
 
   /** The 'aria-describedby' attribute is read after the element's label and field type. */
-  @Input('aria-describedby') ariaDescribedby: string;
+  @Input('aria-describedby') ariaDescribedby?: string;
 
   get inputId(): string { return `${this.id || this._uniqueId}-input`; }
 
@@ -132,46 +132,46 @@ export class MdcRadio implements AfterViewInit, OnDestroy, MdcFormFieldControl<a
       this._changeDetectorRef.markForCheck();
     }
   }
-  private _disabled: boolean;
+  private _disabled: boolean = false;
 
   @Input()
   get required(): boolean { return this._required || (this.radioGroup && this.radioGroup.required); }
   set required(value: boolean) {
     this._required = toBoolean(value);
   }
-  private _required: boolean;
+  private _required: boolean = false;
 
   @Output() readonly change: EventEmitter<MdcRadioChange> = new EventEmitter<MdcRadioChange>();
-  @ViewChild('input') input: ElementRef<HTMLInputElement>;
+  @ViewChild('input') input!: ElementRef<HTMLInputElement>;
 
   /** Unregister function for _radioDispatcher */
   private _removeUniqueSelectionListener: () => void = () => { };
 
-  createAdapter() {
+  private _createAdapter() {
     return {
       addClass: (className: string) => this._getHostElement().classList.add(className),
       removeClass: (className: string) => this._getHostElement().classList.remove(className),
-      getNativeControl: () => this._getInputElement()
+      setNativeControlDisabled: (disabled: boolean) => this.disabled = disabled
     };
   }
 
   private _foundation: {
     init(): void,
     destroy(): void,
-    isChecked(): boolean,
-    setChecked(checked: boolean): void,
-    setDisabled(disabled: boolean): void,
-    isDisabled(): boolean,
-    getValue(): any,
-    setValue(value: any): void
-  } = new MDCRadioFoundation(this.createAdapter());
+    setDisabled(disabled: boolean): void
+  } = new MDCRadioFoundation(this._createAdapter());
 
   constructor(
     private _changeDetectorRef: ChangeDetectorRef,
     public elementRef: ElementRef<HTMLElement>,
     public ripple: MdcRipple,
     private _radioDispatcher: UniqueSelectionDispatcher,
-    @Optional() @Inject(MDC_RADIO_GROUP_PARENT_COMPONENT) public radioGroup: MdcRadioGroupParentComponent) {
+    @Optional() @Inject(MDC_RADIO_GROUP_PARENT_COMPONENT) public radioGroup: MdcRadioGroupParentComponent,
+    @Optional() private _parentFormField: MdcFormField) {
+
+    if (this._parentFormField) {
+      _parentFormField.elementRef.nativeElement.classList.add('mdc-form-field');
+    }
 
     this._removeUniqueSelectionListener =
       _radioDispatcher.listen((id: string, name: string) => {
@@ -229,7 +229,8 @@ export class MdcRadio implements AfterViewInit, OnDestroy, MdcFormFieldControl<a
 
     if (this._checked !== newCheckedState) {
       this._checked = newCheckedState;
-      this._foundation.setChecked(newCheckedState);
+      this._getInputElement().checked = newCheckedState;
+
       if (newCheckedState && this.radioGroup && this.radioGroup.value !== this.value) {
         this.radioGroup.selected = this;
       } else if (!newCheckedState && this.radioGroup && this.radioGroup.value === this.value) {
@@ -250,7 +251,8 @@ export class MdcRadio implements AfterViewInit, OnDestroy, MdcFormFieldControl<a
   setValue(value: any): void {
     if (this._value !== value) {
       this._value = value;
-      this._foundation.setValue(value);
+      this._getInputElement().value = this._value;
+
       if (this.radioGroup !== null) {
         if (!this.checked) {
           // Update checked when the value changed to match the radio group's value

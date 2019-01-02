@@ -68,7 +68,7 @@ export class MdcIconOn { }
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
-export class MdcIconButton implements AfterContentInit, OnDestroy {
+export class MdcIconButton implements AfterContentInit, ControlValueAccessor, OnDestroy {
   private _uniqueId: string = `mdc-icon-button-${++nextUniqueId}`;
 
   @Input() id: string = this._uniqueId;
@@ -82,22 +82,22 @@ export class MdcIconButton implements AfterContentInit, OnDestroy {
   set on(value: boolean) {
     this.setOn(value);
   }
-  private _on: boolean;
+  private _on: boolean = false;
 
   @Input()
   get disabled(): boolean { return this._disabled; }
   set disabled(value: boolean) {
     this.setDisabled(value);
   }
-  private _disabled: boolean;
+  private _disabled: boolean = false;
 
   @Output() readonly change: EventEmitter<MdcIconButtonChange> =
     new EventEmitter<MdcIconButtonChange>();
 
-  @ContentChildren(MdcIcon, { descendants: true }) icons: QueryList<MdcIcon>;
+  @ContentChildren(MdcIcon, { descendants: true }) icons!: QueryList<MdcIcon>;
 
   /** Subscription to changes in icons. */
-  private _changeSubscription: Subscription;
+  private _changeSubscription: Subscription | null = null;
 
   _onChange: (value: any) => void = () => { };
   _onTouched = () => { };
@@ -147,7 +147,9 @@ export class MdcIconButton implements AfterContentInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this._changeSubscription.unsubscribe();
+    if (this._changeSubscription) {
+      this._changeSubscription.unsubscribe();
+    }
 
     this.ripple.destroy();
     this._foundation.destroy();

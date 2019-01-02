@@ -73,14 +73,14 @@ export class MdcChipIcon extends MdcIcon {
   set leading(value: boolean) {
     this._leading = toBoolean(value);
   }
-  private _leading: boolean;
+  private _leading: boolean = false;
 
   @Input()
   get trailing(): boolean { return this._trailing; }
   set trailing(value: boolean) {
     this._trailing = toBoolean(value);
   }
-  private _trailing: boolean;
+  private _trailing: boolean = false;
 }
 
 @Component({
@@ -89,7 +89,10 @@ export class MdcChipIcon extends MdcIcon {
   exportAs: 'mdcChipCheckmark',
   template: `
   <div class="mdc-chip__checkmark">
-    <svg class="mdc-chip__checkmark-svg" viewBox="-2 -3 30 30">
+    <svg
+      class="mdc-chip__checkmark-svg"
+      viewBox="-2 -3 30 30"
+      focusable="false">
       <path class="mdc-chip__checkmark-path" fill="none" stroke="black" d="M1.73,12.91 8.1,19.28 22.79,4.59"/>
     </svg>
   </div>
@@ -115,8 +118,8 @@ export class MdcChipText {
     '[id]': 'id',
     '[attr.tabindex]': 'disabled ? null : 0',
     'class': 'mdc-chip',
-    '[class.ng-mdc-chip--primary]': 'primary',
-    '[class.ng-mdc-chip--secondary]': 'secondary'
+    '[class.ngx-mdc-chip--primary]': 'primary',
+    '[class.ngx-mdc-chip--secondary]': 'secondary'
   },
   template: `
   <ng-container [ngSwitch]="filter">
@@ -149,7 +152,7 @@ export class MdcChip implements AfterViewInit, OnDestroy {
     return this.icons ? this.icons.find((_: MdcChipIcon) => _.leading) : undefined;
   }
 
-  @Input() label: string;
+  @Input() label?: string;
 
   @Input()
   get selected(): boolean { return this._selected; }
@@ -158,31 +161,31 @@ export class MdcChip implements AfterViewInit, OnDestroy {
     this._foundation.setSelected(this._selected);
     this._changeDetectorRef.markForCheck();
   }
-  private _selected: boolean;
+  private _selected: boolean = false;
 
   get filter(): boolean { return this._filter; }
   set filter(value: boolean) {
     this._filter = toBoolean(value);
     this._changeDetectorRef.markForCheck();
   }
-  private _filter: boolean;
+  private _filter: boolean = false;
 
-  choice: boolean;
-  input: boolean;
+  choice?: boolean;
+  input?: boolean;
 
   @Input()
   get primary(): boolean { return this._primary; }
   set primary(value: boolean) {
     this._primary = toBoolean(value);
   }
-  private _primary: boolean;
+  private _primary: boolean = false;
 
   @Input()
   get secondary(): boolean { return this._secondary; }
   set secondary(value: boolean) {
     this._secondary = toBoolean(value);
   }
-  private _secondary: boolean;
+  private _secondary: boolean = false;
 
   /** Determines whether or not the chip displays the remove styling and emits (removed) events. */
   @Input()
@@ -200,7 +203,15 @@ export class MdcChip implements AfterViewInit, OnDestroy {
   set disabled(value: boolean) {
     this._disabled = toBoolean(value);
   }
-  private _disabled: boolean;
+  private _disabled: boolean = false;
+
+  /** Whether the chip ripple is disabled. */
+  @Input()
+  get disableRipple(): boolean { return this._disableRipple; }
+  set disableRipple(value: boolean) {
+    this._disableRipple = toBoolean(value);
+  }
+  private _disableRipple: boolean = false;
 
   /** Emitted when the chip is selected or deselected. */
   @Output() readonly selectionChange: EventEmitter<MdcChipSelectionEvent> =
@@ -214,8 +225,8 @@ export class MdcChip implements AfterViewInit, OnDestroy {
   @Output() readonly removed: EventEmitter<MdcChipRemovedEvent> =
     new EventEmitter<MdcChipRemovedEvent>();
 
-  private _chipInteractionEventSubscription: Subscription;
-  private _chipIconInteractionEventSubscription: Subscription;
+  private _chipInteractionEventSubscription: Subscription | null = null;
+  private _chipIconInteractionEventSubscription: Subscription | null = null;
 
   /** Combined stream of all of the chip interaction events. */
   get chipInteractionEvents(): Observable<any> {
@@ -229,8 +240,8 @@ export class MdcChip implements AfterViewInit, OnDestroy {
     return merge(...CHIP_INTERACTION_EVENTS.map(evt => fromEvent(icon.elementRef.nativeElement, evt)));
   }
 
-  @ContentChild(MdcChipText) chipText: MdcChipText;
-  @ContentChildren(MdcChipIcon, { descendants: true }) icons: QueryList<MdcChipIcon>;
+  @ContentChild(MdcChipText) chipText!: MdcChipText;
+  @ContentChildren(MdcChipIcon, { descendants: true }) icons!: QueryList<MdcChipIcon>;
 
   createAdapter() {
     return {
@@ -248,7 +259,10 @@ export class MdcChip implements AfterViewInit, OnDestroy {
         }
       },
       eventTargetHasClass: (target: HTMLElement, className: string) => target.classList.contains(className),
-      notifyInteraction: () => this._emitSelectionChangeEvent(),
+      notifyInteraction: () => {
+        this.selected = !this.selected;
+        this._emitSelectionChangeEvent();
+      },
       notifyTrailingIconInteraction: () => this.trailingIconInteraction.emit({ detail: { chipId: this.id } }),
       notifyRemoval: () => this.removed.emit({ detail: { chipId: this.id, root: this } }),
       getComputedStyleValue: (propertyName: string) => {
@@ -256,7 +270,8 @@ export class MdcChip implements AfterViewInit, OnDestroy {
           window.getComputedStyle(this._getHostElement()).getPropertyValue(propertyName);
         }
       },
-      setStyleProperty: (propertyName: string, value: string) => this._getHostElement().style.setProperty(propertyName, value)
+      setStyleProperty: (propertyName: string, value: string) =>
+        this._getHostElement().style.setProperty(propertyName, value)
     };
   }
 
@@ -266,7 +281,7 @@ export class MdcChip implements AfterViewInit, OnDestroy {
     beginExit(): void,
     setSelected(selected: boolean): void,
     setShouldRemoveOnTrailingIconClick(shouldRemove: boolean): void,
-    handleInteraction(evt: Event): void,
+    handleInteraction(evt: KeyboardEvent | MouseEvent): void,
     handleTransitionEnd(evt: TransitionEvent): void,
     handleTrailingIconInteraction(evt: Event): void
   } = new MDCChipFoundation(this.createAdapter());
@@ -280,7 +295,11 @@ export class MdcChip implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this._foundation.init();
-    this._ripple.init({ surface: this._getHostElement() });
+    this._ripple.init({
+      surface: this._getHostElement()
+    }, Object.assign(this._ripple.createAdapter(), {
+      isSurfaceDisabled: () => this._disableRipple
+    }));
     this._loadListeners();
   }
 
@@ -304,8 +323,7 @@ export class MdcChip implements AfterViewInit, OnDestroy {
 
   private _loadListeners(): void {
     this._chipInteractionEventSubscription = this.chipInteractionEvents.pipe()
-      .subscribe(evt => {
-        this.selected = !this.selected;
+      .subscribe((evt: KeyboardEvent | MouseEvent) => {
         this._foundation.handleInteraction(evt);
       });
 

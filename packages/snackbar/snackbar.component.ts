@@ -3,10 +3,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
-  Input,
   Inject,
   OnDestroy,
-  Output,
   ViewChild,
   ViewEncapsulation
 } from '@angular/core';
@@ -41,8 +39,8 @@ export class MdcSnackbarComponent implements AfterViewInit, OnDestroy {
   /** Data that was injected into the snack bar. */
   data: { message: string, actionText: string };
 
-  @ViewChild('message') message: ElementRef<HTMLElement>;
-  @ViewChild('action') actionButton: ElementRef<HTMLButtonElement>;
+  @ViewChild('message') message!: ElementRef<HTMLElement>;
+  @ViewChild('action') actionButton!: ElementRef<HTMLButtonElement>;
 
   createAdapter() {
     return {
@@ -149,7 +147,7 @@ export class MdcSnackbarComponent implements AfterViewInit, OnDestroy {
     if (config.align === 'start') {
       this._getHostElement().classList.add('mdc-snackbar--align-start');
     } else if (config.align === 'end') {
-      this._getHostElement().classList.add('ng-mdc-snackbar--align-end');
+      this._getHostElement().classList.add('ngx-mdc-snackbar--align-end');
     }
 
     if (!config.actionHandler && config.data.actionText) {

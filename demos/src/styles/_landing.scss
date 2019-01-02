@@ -1,0 +1,46 @@
+.demo-landing {
+  @include mdc-theme-prop(color, $color-white);
+  @include mdc-theme-prop(background-color, $color-rally);
+
+  height: 40vh;
+
+  &__title {
+    @include mdc-typography(headline2);
+
+    margin-top: 20px;
+    margin-bottom: 0;
+
+    @media (max-width: 699px) {
+      font-size: 8vw;
+    }
+  }
+
+  &__label {
+    @include mdc-typography(headline4);
+
+    margin-top: 20px;
+    margin-bottom: 0;
+
+    @media (max-width: 699px) {
+      font-size: 6vw;
+      margin: 0;
+    }
+  }
+
+  &__subtitle {
+    @include mdc-typography(body1);
+    @include mdc-theme-prop(color, text-secondary-on-background);
+
+    padding-left: 25px;
+    padding-right: 25px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  &__version {
+    @include mdc-typography(caption);
+
+    margin: 8px;
+  }
+}

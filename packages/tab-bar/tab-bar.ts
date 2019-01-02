@@ -18,7 +18,6 @@ import { startWith, takeUntil } from 'rxjs/operators';
 
 import { toBoolean, Platform } from '@angular-mdc/web/common';
 import { MdcTabScroller, MdcTabScrollerAlignment } from '@angular-mdc/web/tab-scroller';
-import { MdcTabIndicator } from '@angular-mdc/web/tab-indicator';
 import { MdcTab, MdcTabInteractedEvent, MDC_TAB_BAR_PARENT_COMPONENT } from '@angular-mdc/web/tab';
 
 import { MDCTabBarFoundation } from '@material/tab-bar/index';
@@ -50,37 +49,42 @@ export class MdcTabBar implements AfterContentInit, OnDestroy {
   @Input()
   get fade(): boolean { return this._fade; }
   set fade(value: boolean) {
-    this.setFade(value);
+    this._fade = toBoolean(value);
+    this._syncTabs();
   }
-  private _fade: boolean;
+  private _fade: boolean = false;
 
   @Input()
   get stacked(): boolean { return this._stacked; }
   set stacked(value: boolean) {
-    this.setStacked(value);
+    this._stacked = toBoolean(value);
+    this._syncTabs();
   }
-  private _stacked: boolean;
+  private _stacked: boolean = false;
 
   @Input()
   get fixed(): boolean { return this._fixed; }
   set fixed(value: boolean) {
-    this.setFixed(value);
+    this._fixed = toBoolean(value);
+    this._syncTabs();
   }
-  private _fixed: boolean;
+  private _fixed: boolean = false;
 
   @Input()
-  get align(): MdcTabScrollerAlignment { return this._align; }
-  set align(value: MdcTabScrollerAlignment) {
-    this.setAlign(value);
+  get align(): MdcTabScrollerAlignment | null { return this._align; }
+  set align(value: MdcTabScrollerAlignment | null) {
+    this._align = value || 'start';
+    this.tabScroller.align = this.align;
   }
-  private _align: MdcTabScrollerAlignment;
+  private _align: MdcTabScrollerAlignment | null = null;
 
   @Input()
-  get iconIndicator(): string { return this._iconIndicator; }
-  set iconIndicator(value: string) {
-    this.setIconIndicator(value);
+  get iconIndicator(): string | null { return this._iconIndicator; }
+  set iconIndicator(value: string | null) {
+    this._iconIndicator = value;
+    this._syncTabs();
   }
-  private _iconIndicator: string;
+  private _iconIndicator: string | null = null;
 
   @Input()
   get useAutomaticActivation(): boolean { return this._useAutomaticActivation; }
@@ -88,7 +92,7 @@ export class MdcTabBar implements AfterContentInit, OnDestroy {
     this._useAutomaticActivation = toBoolean(value);
     this._foundation.setUseAutomaticActivation(this._useAutomaticActivation);
   }
-  private _useAutomaticActivation: boolean;
+  private _useAutomaticActivation: boolean = false;
 
   @Input()
   get activeTabIndex(): number { return this._activeTabIndex; }
@@ -100,24 +104,32 @@ export class MdcTabBar implements AfterContentInit, OnDestroy {
   }
   private _activeTabIndex: number = 0;
 
+  @Input()
+  get focusOnActivate(): boolean { return this._focusOnActivate; }
+  set focusOnActivate(value: boolean) {
+    this._focusOnActivate = toBoolean(value);
+    this._syncTabs();
+  }
+  private _focusOnActivate: boolean = true;
+
   @Output() readonly activated: EventEmitter<MdcTabActivatedEvent> =
     new EventEmitter<MdcTabActivatedEvent>();
 
-  @ContentChild(MdcTabScroller) tabScroller: MdcTabScroller;
-  @ContentChildren(MdcTab, { descendants: true }) tabs: QueryList<MdcTab>;
+  @ContentChild(MdcTabScroller) tabScroller!: MdcTabScroller;
+  @ContentChildren(MdcTab, { descendants: true }) tabs!: QueryList<MdcTab>;
 
   /** Subscription to changes in tabs. */
-  private _changeSubscription: Subscription;
+  private _changeSubscription: Subscription | null = null;
 
   /** Subscription to interaction events in tabs. */
-  private _tabInteractionSubscription: Subscription | null;
+  private _tabInteractionSubscription: Subscription | null = null;
 
   /** Combined stream of all of the tab interaction events. */
   get tabInteractions(): Observable<MdcTabInteractedEvent> {
     return merge(...this.tabs.map(tab => tab.interacted));
   }
 
-  createAdapter() {
+  private _createAdapter() {
     return {
       scrollTo: (scrollX: number) => this.tabScroller.scrollTo(scrollX),
       incrementScroll: (scrollXIncrement: number) => this.tabScroller.incrementScroll(scrollXIncrement),
@@ -148,10 +160,12 @@ export class MdcTabBar implements AfterContentInit, OnDestroy {
       getTabDimensionsAtIndex: (index: number) => this.tabs.toArray()[index].computeDimensions(),
       getPreviousActiveTabIndex: () => this.tabs.toArray().findIndex((_) => _.active),
       getFocusedTabIndex: () =>
-        this._platform.isBrowser ? this.tabs.toArray().findIndex(tab => tab.elementRef.nativeElement === document.activeElement!) : -1,
+        this._platform.isBrowser ? this.tabs.toArray().findIndex(tab =>
+          tab.elementRef.nativeElement === document.activeElement!) : -1,
       getIndexOfTab: (tabToFind: MdcTab) => this.tabs.toArray().indexOf(tabToFind),
       getTabListLength: () => this.tabs.length,
-      notifyTabActivated: (index: number) => this.activated.emit({ source: this, index: index, tab: this.tabs.toArray()[index] })
+      notifyTabActivated: (index: number) =>
+        this.activated.emit({ source: this, index: index, tab: this.tabs.toArray()[index] })
     };
   }
 
@@ -162,7 +176,7 @@ export class MdcTabBar implements AfterContentInit, OnDestroy {
     handleTabInteraction(evt: MdcTabInteractedEvent): void,
     scrollIntoView(index: number): void,
     setUseAutomaticActivation(useAutomaticActivation: boolean): void
-  } = new MDCTabBarFoundation(this.createAdapter());
+  } = new MDCTabBarFoundation(this._createAdapter());
 
   constructor(
     private _ngZone: NgZone,
@@ -175,9 +189,10 @@ export class MdcTabBar implements AfterContentInit, OnDestroy {
     // When the list changes, re-subscribe
     this._changeSubscription = this.tabs.changes.pipe(startWith(null)).subscribe(() => {
       Promise.resolve().then(() => {
-        if (this.tabs.length > 0) {
+        if (this.tabs.length) {
+          this._syncTabs();
           this.activateTab(this.activeTabIndex);
-          this._resetTabs();
+          this._resetTabSubscriptions();
         }
       });
     });
@@ -198,7 +213,19 @@ export class MdcTabBar implements AfterContentInit, OnDestroy {
     this._dropSubscriptions();
   }
 
-  private _resetTabs(): void {
+  private _syncTabs(): void {
+    if (!this.tabs) { return; }
+
+    this.tabs.forEach(tab => {
+      tab.stacked = this._stacked;
+      tab.fixed = this._fixed;
+      tab.tabIndicator.fade = this._fade;
+      tab.tabIndicator.icon = this._iconIndicator;
+      tab.focusOnActivate = this._focusOnActivate;
+    });
+  }
+
+  private _resetTabSubscriptions(): void {
     this._dropSubscriptions();
     this._listenToTabInteraction();
   }
@@ -220,54 +247,6 @@ export class MdcTabBar implements AfterContentInit, OnDestroy {
 
       event.detail.tab.tabIndicator.active = true;
       this._foundation.handleTabInteraction(event);
-    });
-  }
-
-  setFade(fade: boolean): void {
-    this._fade = toBoolean(fade);
-
-    Promise.resolve().then(() => {
-      this.tabs.forEach(tab => {
-        tab.tabIndicator.fade = this.fade;
-      });
-    });
-  }
-
-  setStacked(stacked: boolean): void {
-    this._stacked = toBoolean(stacked);
-
-    Promise.resolve().then(() => {
-      this.tabs.forEach(tab => {
-        tab.stacked = this.stacked;
-      });
-    });
-  }
-
-  setFixed(fixed: boolean): void {
-    this._fixed = toBoolean(fixed);
-
-    Promise.resolve().then(() => {
-      this.tabs.forEach(tab => {
-        tab.fixed = this.fixed;
-      });
-    });
-  }
-
-  setAlign(align: MdcTabScrollerAlignment): void {
-    this._align = align || 'start';
-
-    Promise.resolve().then(() => {
-      this.tabScroller.align = this.align;
-    });
-  }
-
-  setIconIndicator(iconIndicator: string): void {
-    this._iconIndicator = iconIndicator;
-
-    Promise.resolve().then(() => {
-      this.tabs.forEach(tab => {
-        tab.tabIndicator.icon = this.iconIndicator;
-      });
     });
   }
 

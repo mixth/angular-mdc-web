@@ -1,39 +1,57 @@
 import {
-  AfterContentInit,
+  AfterViewInit,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
-  ContentChildren,
+  ContentChild,
+  DoCheck,
   ElementRef,
   EventEmitter,
-  forwardRef,
   Input,
   OnDestroy,
   Optional,
   Output,
-  QueryList,
   Self,
   ViewChild,
   ViewEncapsulation
 } from '@angular/core';
-import { NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
-import { merge, fromEvent, Subject, Subscription, Observable } from 'rxjs';
-import { map, startWith, takeUntil } from 'rxjs/operators';
+import { ControlValueAccessor, FormGroupDirective, NgControl, NgForm } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 import { toBoolean, Platform } from '@angular-mdc/web/common';
 import { MdcRipple } from '@angular-mdc/web/ripple';
-
 import { MdcNotchedOutline } from '@angular-mdc/web/notched-outline';
 import { MdcFloatingLabel } from '@angular-mdc/web/floating-label';
+import { MdcMenu } from '@angular-mdc/web/menu';
 import { MdcLineRipple } from '@angular-mdc/web/line-ripple';
+import {
+  MdcFormField,
+  MdcFormFieldControl,
+  MdcHelperText,
+  ErrorStateMatcher,
+  CanUpdateErrorState,
+  CanUpdateErrorStateCtor,
+  mixinErrorState
+} from '@angular-mdc/web/form-field';
+import { MdcList, MdcListItemChange } from '@angular-mdc/web/list';
 
+import { MdcSelectIcon } from './select-icon';
+
+import { MDCSelectHelperTextFoundation } from '@material/select/helper-text/index';
+import { cssClasses } from '@material/select/constants';
 import { MDCSelectFoundation } from '@material/select/index';
 
-export const MDC_SELECT_CONTROL_VALUE_ACCESSOR: any = {
-  provide: NG_VALUE_ACCESSOR,
-  useExisting: forwardRef(() => MdcSelect),
-  multi: true
-};
+export class MdcSelectBase {
+  constructor(
+    public _defaultErrorStateMatcher: ErrorStateMatcher,
+    public _parentForm: NgForm,
+    public _parentFormGroup: FormGroupDirective,
+    public ngControl: NgControl) { }
+}
+
+export const _MdcSelectMixinBase: CanUpdateErrorStateCtor & typeof MdcSelectBase =
+  mixinErrorState(MdcSelectBase);
 
 export class MdcSelectChange {
   constructor(
@@ -41,11 +59,6 @@ export class MdcSelectChange {
     public index: number,
     public value: any) { }
 }
-
-const LINE_RIPPLE_EVENTS = [
-  'mousedown',
-  'touchstart'
-];
 
 let nextUniqueId = 0;
 
@@ -56,36 +69,63 @@ let nextUniqueId = 0;
   host: {
     '[id]': 'id',
     'class': 'mdc-select',
-    '[class.mdc-select--outlined]': 'outlined'
+    '[class.mdc-select--disabled]': 'disabled',
+    '[class.mdc-select--outlined]': 'outlined',
+    '[class.mdc-select--required]': 'required',
+    '[class.mdc-select--with-leading-icon]': 'leadingIcon',
+    '[class.mdc-select--invalid]': 'errorState || !valid'
   },
   template: `
-  <select #input
+  <ng-content select="mdc-icon"></ng-content>
+  <ng-container *ngIf="_list">
+    <div #selectedText class="mdc-select__selected-text"
+      [tabindex]="disabled ? '-1' : '0'"
+      (blur)="onBlur()"
+      (change)="onChange($event)"
+      (focus)="onFocus()"
+      (keydown)="onKeydown($event)"
+      (mousedown)="onInteraction($event)"
+      (touchstart)="onInteraction($event)">{{_enhancedSelectedText}}</div>
+    <ng-content select="mdc-menu"></ng-content>
+  </ng-container>
+  <i class="mdc-select__dropdown-icon"></i>
+  <select #nativeSelect *ngIf="!_list"
    class="mdc-select__native-control"
+   [attr.aria-describedby]="_ariaDescribedby || null"
+   [required]="required"
+   (mousedown)="onInteraction($event)"
+   (touchstart)="onInteraction($event)"
    (blur)="onBlur()"
    (change)="onChange($event)"
    (focus)="onFocus()">
-    <ng-content #option></ng-content>
+    <ng-content></ng-content>
   </select>
-  <label mdcFloatingLabel [for]="id">{{_shouldHideFloatingLabel() ? '' : placeholder}}</label>
+  <label mdcFloatingLabel *ngIf="!outlined" [for]="id">{{placeholderText}}</label>
   <mdc-line-ripple *ngIf="!outlined"></mdc-line-ripple>
-  <mdc-notched-outline *ngIf="outlined"></mdc-notched-outline>
+  <mdc-notched-outline *ngIf="outlined" [label]="placeholderText" [for]="id"></mdc-notched-outline>
   `,
   providers: [
-    MDC_SELECT_CONTROL_VALUE_ACCESSOR,
-    MdcRipple
+    MdcRipple,
+    { provide: MdcFormFieldControl, useExisting: MdcSelect }
   ],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDestroy {
+export class MdcSelect extends _MdcSelectMixinBase implements AfterViewInit, DoCheck,
+  OnDestroy, ControlValueAccessor, MdcFormFieldControl<any>, CanUpdateErrorState {
   /** Emits whenever the component is destroyed. */
-  private _destroy = new Subject<void>();
+  private _destroyed = new Subject<void>();
 
-  private _initialized: boolean = false;
   private _uniqueId: string = `mdc-select-${++nextUniqueId}`;
+
+  controlType: string = 'mdc-select';
+  _enhancedSelectedText: string = '';
 
   @Input() id: string = this._uniqueId;
   @Input() name: string | null = null;
+
+  /** The aria-describedby attribute on the input for improved a11y. */
+  _ariaDescribedby?: string;
 
   /** Placeholder to be shown if no value has been selected. */
   @Input()
@@ -93,44 +133,66 @@ export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDest
   set placeholder(value: string) {
     this._placeholder = value;
   }
-  private _placeholder: string;
+  private _placeholder: string = '';
 
   @Input()
   get disabled(): boolean { return this._disabled; }
   set disabled(value: boolean) {
     this.setDisabledState(value);
   }
-  private _disabled: boolean;
+  private _disabled: boolean = false;
 
   @Input()
-  get floatingLabel(): boolean { return this._floatingLabel; }
-  set floatingLabel(value: boolean) {
-    this.setFloatingLabel(value);
+  get floatLabel(): boolean { return this._floatLabel; }
+  set floatLabel(value: boolean) {
+    this._floatLabel = toBoolean(value);
+    this.layout();
   }
-  private _floatingLabel: boolean = true;
+  private _floatLabel: boolean = true;
 
   @Input()
   get outlined(): boolean { return this._outlined; }
   set outlined(value: boolean) {
-    if (value !== this._outlined) {
-      this.setOutlined(value);
+    const newValue = toBoolean(value);
+    if (newValue !== this._outlined) {
+      this._outlined = toBoolean(newValue);
+      this.layout();
     }
   }
-  private _outlined: boolean;
+  private _outlined: boolean = false;
+
+  @Input()
+  get required(): boolean { return this._required; }
+  set required(value: boolean) {
+    this._required = toBoolean(value);
+    if (!this._required) {
+      this.valid = true;
+    }
+  }
+  private _required: boolean = false;
+
+  @Input()
+  get valid(): boolean | undefined { return this._valid; }
+  set valid(value: boolean | undefined) {
+    this._valid = toBoolean(value);
+    if (this._foundation) {
+      this._foundation.setValid(this._valid);
+    }
+  }
+  private _valid: boolean | undefined;
 
   @Input()
   get autosize(): boolean { return this._autosize; }
   set autosize(value: boolean) {
     this._autosize = toBoolean(value);
+    this._setWidth();
   }
-  private _autosize: boolean;
+  private _autosize: boolean = false;
 
   @Input()
   get compareWith() { return this._compareWith; }
   set compareWith(fn: (o1: any, o2: any) => boolean) {
     this._compareWith = fn;
-    // A different comparator means the selection could change.
-    this._initializeSelection();
   }
   private _compareWith = (o1: any, o2: any) => o1 === o2;
 
@@ -138,12 +200,22 @@ export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDest
   @Input()
   get value(): any { return this._value; }
   set value(newValue: any) {
-    if (newValue !== this._value) {
-      this.writeValue(newValue);
-      this._value = newValue;
-    }
+    this.setSelectionByValue(newValue);
   }
   private _value: any;
+
+  @Input()
+  get helperText(): MdcHelperText | null { return this._helperText; }
+  set helperText(helperText: MdcHelperText | null) {
+    if (this._helperText !== helperText) {
+      this._helperText = helperText;
+      this._initHelperText();
+    }
+  }
+  private _helperText: MdcHelperText | null = null;
+
+  /** An object used to control when error messages are shown. */
+  @Input() errorStateMatcher?: ErrorStateMatcher;
 
   /** Event emitted when the selected value has been changed by the user. */
   @Output() readonly selectionChange: EventEmitter<MdcSelectChange> =
@@ -153,14 +225,17 @@ export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDest
    * Event that emits whenever the raw value of the select changes. This is here primarily
    * to facilitate the two-way binding for the `value` input.
    */
-  @Output() readonly valueChange: EventEmitter<{ index: number, value: any }> = new EventEmitter<any>();
+  @Output() readonly valueChange:
+    EventEmitter<{ index: number, value: any }> = new EventEmitter<any>();
 
-  @ViewChild(MdcFloatingLabel) _selectLabel: MdcFloatingLabel;
-  @ViewChild(MdcLineRipple) _lineRipple: MdcLineRipple;
-  @ViewChild('input') inputEl: ElementRef;
-  @ViewChild(MdcNotchedOutline) _notchedOutline: MdcNotchedOutline;
-
-  @ContentChildren('option', { descendants: true }) options: QueryList<HTMLOptionElement>;
+  @ViewChild(MdcFloatingLabel) _floatingLabel!: MdcFloatingLabel;
+  @ViewChild(MdcLineRipple) _lineRipple!: MdcLineRipple;
+  @ViewChild(MdcNotchedOutline) _notchedOutline!: MdcNotchedOutline;
+  @ViewChild('nativeSelect') _nativeSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('selectedText') _selectedText!: ElementRef<HTMLElement>;
+  @ContentChild(MdcMenu) _menu!: MdcMenu;
+  @ContentChild(MdcSelectIcon) leadingIcon!: MdcSelectIcon;
+  @ContentChild(MdcList) _list!: MdcList;
 
   /** View -> model callback called when value changes */
   _onChange: (value: any) => void = () => { };
@@ -168,19 +243,25 @@ export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDest
   /** View -> model callback called when select has been touched */
   _onTouched = () => { };
 
-  private _lineRippleSubscription: Subscription;
-
-  /** Combined stream of all of the line ripple events. */
-  get lineRippleEvents(): Observable<any> {
-    return merge(...LINE_RIPPLE_EVENTS.map(evt => fromEvent(this._getInputElement(), evt)));
+  get placeholderText(): string {
+    return !this._hasFloatingLabel() && this.getValue() ? '' : this.placeholder;
   }
 
   private _createAdapter() {
+    return Object.assign(
+      this._isEnhancedVariant() ? this._getEnhancedSelectAdapterMethods() : this._getNativeSelectAdapterMethods(),
+      this._getCommonAdapterMethods(),
+      this._getOutlineAdapterMethods(),
+      this._getLabelAdapterMethods()
+    );
+  }
+
+  private _getCommonAdapterMethods() {
     return {
       addClass: (className: string) => this._getHostElement().classList.add(className),
       removeClass: (className: string) => this._getHostElement().classList.remove(className),
       hasClass: (className: string) => this._getHostElement().classList.contains(className),
-      floatLabel: (shouldFloat: boolean) => this._selectLabel.float(shouldFloat),
+      setRippleCenter: (normalizedX: number) => this._lineRipple && this._lineRipple.setRippleCenter(normalizedX),
       activateBottomLine: () => {
         if (this._lineRipple) {
           this._lineRipple.activate();
@@ -191,98 +272,146 @@ export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDest
           this._lineRipple.deactivate();
         }
       },
-      getValue: () => this._platform.isBrowser ? this._getInputElement().value : null,
-      isRtl: () => getComputedStyle(this._getHostElement()).direction === 'rtl',
-      hasLabel: () => !!this._selectLabel,
-      getLabelWidth: () => this._selectLabel ? this._selectLabel.getWidth() : 0,
+      notifyChange: (value: string) =>
+        this.selectionChange.emit(new MdcSelectChange(this, this.getSelectedIndex(), value))
+    };
+  }
+
+  private _getNativeSelectAdapterMethods() {
+    return {
+      getValue: () => this._platform.isBrowser ? this._nativeSelect.nativeElement.value : '',
+      setValue: (value: any) => this._nativeSelect.nativeElement.value = value,
+      isMenuOpen: () => false,
+      setSelectedIndex: (index: number) => this._nativeSelect.nativeElement.selectedIndex = index,
+      setDisabled: (isDisabled: boolean) => this._nativeSelect.nativeElement.disabled = isDisabled,
+      setValid: (isValid: boolean) =>
+        isValid ? this._getHostElement().classList.remove(cssClasses.INVALID) :
+          this._getHostElement().classList.add(cssClasses.INVALID),
+      checkValidity: () => this._nativeSelect.nativeElement.checkValidity()
+    };
+  }
+
+  private _getEnhancedSelectAdapterMethods() {
+    return {
+      getValue: () => this.getValue() || '',
+      openMenu: () => {
+        if (this._menu && !this._menu.open) {
+          this._menu.open = true;
+          this._selectedText.nativeElement.setAttribute('aria-expanded', 'true');
+        }
+      },
+      closeMenu: () => {
+        if (this._menu && this._menu.open) {
+          this._menu.open = false;
+        }
+      },
+      isMenuOpen: () => this._menu && this._menu.open,
+      setDisabled: (isDisabled: boolean) => {
+        this._selectedText.nativeElement.setAttribute('aria-disabled', isDisabled.toString());
+      },
+      checkValidity: () => this._hasErrorState(),
+      setValid: (isValid: boolean) => {
+        this._selectedText.nativeElement.setAttribute('aria-invalid', (!isValid).toString());
+        this._valid = isValid;
+      }
+    };
+  }
+
+  private _getOutlineAdapterMethods() {
+    return {
       hasOutline: () => !!this._notchedOutline,
-      notchOutline: (labelWidth: number, isRtl: boolean) => this._notchedOutline.notch(labelWidth, isRtl),
+      notchOutline: (labelWidth: number) => this._notchedOutline.notch(labelWidth),
       closeOutline: () => this._notchedOutline.closeNotch()
     };
   }
 
-  private _foundation: {
+  private _getLabelAdapterMethods() {
+    return {
+      floatLabel: (shouldFloat: boolean) => this._getFloatingLabel().float(shouldFloat),
+      getLabelWidth: () => this._hasFloatingLabel() ? this._getFloatingLabel()!.getWidth() : 0
+    };
+  }
+
+  /** Returns a map of all subcomponents to subfoundations.*/
+  private _getFoundationMap() {
+    return {
+      helperText: this._helperText || undefined
+    };
+  }
+
+  private _foundation!: {
+    setSelectedIndex(index: number): void,
+    setValue(value: any): void,
+    getValue(): any,
+    setDisabled(isDisabled: boolean): void,
     updateDisabledStyle(disabled: boolean): void,
     notchOutline(openNotch: boolean): void,
-    handleChange(): void,
+    handleChange(didChange?: boolean): void,
     handleFocus(): void,
-    handleBlur(): void
+    handleBlur(): void,
+    handleClick(normalizedX: number): void,
+    handleKeydown(event: KeyboardEvent): void,
+    setValid(isValid: boolean): void,
+    isValid(): boolean,
+    layout(): void
   };
 
   constructor(
     private _platform: Platform,
     private _changeDetectorRef: ChangeDetectorRef,
-    public elementRef: ElementRef,
-    private _ripple: MdcRipple) {
+    public elementRef: ElementRef<HTMLElement>,
+    public _defaultErrorStateMatcher: ErrorStateMatcher,
+    @Optional() private _parentFormField: MdcFormField,
+    @Optional() private _ripple: MdcRipple,
+    @Self() @Optional() public ngControl: NgControl,
+    @Optional() _parentForm: NgForm,
+    @Optional() _parentFormGroup: FormGroupDirective) {
+
+    super(_defaultErrorStateMatcher, _parentForm, _parentFormGroup, ngControl);
+
+    if (this.ngControl) {
+      // Note: we provide the value accessor through here, instead of
+      // the `providers` to avoid running into a circular import.
+      this.ngControl.valueAccessor = this;
+    }
 
     // Force setter to be called in case id was not specified.
     this.id = this.id;
   }
 
-  ngAfterContentInit(): void {
-    this._foundation = new MDCSelectFoundation(this._createAdapter());
+  ngAfterViewInit(): void {
     this.init();
-
-    this.options.changes.pipe(startWith(null), takeUntil(this._destroy)).subscribe(() => {
-      if (this._value) {
-        this._initializeSelection();
-      }
-
-      Promise.resolve().then(() => {
-        this._selectLabel.float(this.getValue());
-        if (this.autosize) {
-          this._setWidth();
-        }
-      });
-    });
-  }
-
-  init(): void {
-    this._initFoundationVariants();
-    this._initialized = true;
-  }
-
-  private _destroySelect(): void {
-    this._destroy.next();
-    this._destroy.complete();
-
-    if (this._lineRipple) {
-      this._lineRipple.destroy();
-    }
-    if (this._lineRippleSubscription) {
-      this._lineRippleSubscription.unsubscribe();
-    }
-    if (this._ripple) {
-      this._ripple.destroy();
-    }
   }
 
   ngOnDestroy(): void {
-    this._destroySelect();
+    this._destroy();
   }
 
-  private _reinitialize(): void {
-    if (this._initialized) {
-      this._destroySelect();
-      this.init();
+  ngDoCheck(): void {
+    if (this.ngControl) {
+      // We need to re-evaluate this on every change detection cycle, because there are some
+      // error triggers that we can't subscribe to (e.g. parent form submissions). This means
+      // that whatever logic is in here has to be super lean or we risk destroying the performance.
+      this.updateErrorState();
     }
   }
 
-  private _initFoundationVariants(): void {
-    Promise.resolve().then(() => {
-      this._initRipple();
-      this._initLineRipple();
+  init(): void {
+    this._foundation = new MDCSelectFoundation(this._createAdapter(), this._getFoundationMap());
+    this._changeDetectorRef.detectChanges();
 
-      this._changeDetectorRef.markForCheck();
-    });
+    // initialize after running a detectChanges()
+    this._initRipple();
+    this._initializeSelection();
+    this._setWidth();
+    this._enhancedSelectSetup();
+
+    // Initially sync floating label
+    this._foundation.handleChange(false);
   }
 
   writeValue(value: any): void {
-    setTimeout(() => {
-      if (value !== this.getValue()) {
-        this.setSelectionByValue(value, false);
-      }
-    });
+    this.setSelectionByValue(value, false);
   }
 
   registerOnChange(fn: (value: any) => void): void {
@@ -294,7 +423,7 @@ export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDest
   }
 
   onChange(event: Event): void {
-    this.setSelectionByValue((<any>event.target).value, true);
+    this.setSelectionByValue((<any>event.target).value);
     event.stopPropagation();
   }
 
@@ -312,12 +441,15 @@ export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDest
     }
   }
 
-  private _initializeSelection(): void {
-    // Defer setting the value in order to avoid the "Expression
-    // has changed after it was checked" errors from Angular.
-    Promise.resolve().then(() => {
-      this.setSelectionByValue(this._value, false);
-    });
+  onInteraction(evt: MouseEvent | TouchEvent): void {
+    if (this._selectedText) {
+      this._selectedText.nativeElement.focus();
+    }
+    this._foundation.handleClick(this._getNormalizedXCoordinate(evt));
+  }
+
+  onKeydown(evt: KeyboardEvent): void {
+    this._foundation.handleKeydown(evt);
   }
 
   /**
@@ -325,152 +457,214 @@ export class MdcSelect implements AfterContentInit, ControlValueAccessor, OnDest
    * found with the designated value, the select trigger is cleared.
    */
   setSelectionByValue(value: any, isUserInput: boolean = true): void {
-    const correspondingOption = this._selectValue(value);
+    if (!this._foundation) { return; }
 
-    this._value = value;
+    const newValue = value || null;
 
-    this._propagateChanges();
-    if (isUserInput) {
-      this._onChange(value);
-    }
-
-    this._changeDetectorRef.markForCheck();
-  }
-
-  private _selectValue(value: any): HTMLOptionElement | undefined {
-    const correspondingOption = this.options.find((option: HTMLOptionElement) => {
-      try {
-        return option.value != null && this._compareWith(option.value, value);
-      } catch {
-        return false;
+    if (this._value === newValue) {
+      // If value reset, change style to valid
+      if (newValue === null) {
+        this.valid = true;
       }
-    });
-
-    return correspondingOption;
-  }
-
-  /** Emits change event to set the model value. */
-  private _propagateChanges(fallbackValue?: any): void {
-    let valueToEmit: any = null;
-
-    valueToEmit = this._value ? this._value : fallbackValue;
-
-    this.valueChange.emit({ index: this.getSelectedIndex(), value: valueToEmit });
-    this._getInputElement().value = valueToEmit;
-
-    if (this._platform.isBrowser) {
-      this._foundation.handleChange();
+      return;
     }
 
-    this.selectionChange.emit(new MdcSelectChange(this, this.getSelectedIndex(), valueToEmit));
+    if (this._isEnhancedVariant()) {
+      this._menu.open = false;
+      this._enhancedSelectedText = this._list.getSelectedText();
+    }
 
+    this._value = newValue;
+    this._foundation.setValue(this._value);
+    this.valueChange.emit({ index: this.getSelectedIndex(), value: this._value });
+
+    if (isUserInput) {
+      this._onChange(this._value);
+    }
     this._changeDetectorRef.markForCheck();
   }
 
   getValue(): any {
-    return this._getInputElement().value;
-  }
-
-  setPlaceholder(text: string): void {
-    this._placeholder = text;
+    return this._value;
   }
 
   getSelectedIndex(): number {
-    return this._getInputElement().selectedIndex;
+    if (this._isEnhancedVariant()) {
+      return this._list ? this._list.getSelectedIndex() : -1;
+    }
+
+    return (<HTMLSelectElement>this._getInputElement()).selectedIndex || -1;
+  }
+
+  setSelectedIndex(index: number): void {
+    this._foundation.setSelectedIndex(index);
+
+    if (this._isEnhancedVariant()) {
+      this._list.setSelectedIndex(index);
+    }
+    this.setSelectionByValue(this._isEnhancedVariant() ?
+      this._list.getSelectedValue() : this._getInputElement().value);
   }
 
   // Implemented as part of ControlValueAccessor.
   setDisabledState(disabled: boolean) {
     this._disabled = toBoolean(disabled);
-    setTimeout(() => this._foundation.updateDisabledStyle(this._disabled));
-
-    this._changeDetectorRef.markForCheck();
-  }
-
-  /** Styles the select style to outlined. */
-  setOutlined(outlined: boolean): void {
-    const newValue = toBoolean(outlined);
-
-    if (newValue !== this._outlined) {
-      this._outlined = toBoolean(newValue);
-      this._reinitialize();
-      setTimeout(() => this._foundation.notchOutline(this._shouldFloatLabel()));
+    if (this._foundation) {
+      this._foundation.setDisabled(this._disabled);
     }
-  }
-
-  setFloatingLabel(floatingLabel: boolean): void {
-    this._floatingLabel = toBoolean(floatingLabel);
-
-    setTimeout(() => {
-      if (this.outlined && this.getValue()) {
-        this._foundation.notchOutline(this._floatingLabel);
-      }
-    });
-
     this._changeDetectorRef.markForCheck();
   }
 
   focus(): void {
     if (!this.disabled) {
-      this._getInputElement().focus();
+      this._isEnhancedVariant() ? this._selectedText.nativeElement.focus() : this._getInputElement().focus();
     }
   }
 
-  _shouldHideFloatingLabel(): boolean {
-    return !this._floatingLabel && this.getValue();
+  /** Initialize Select internal state based on the environment state */
+  private layout(): void {
+    if (this._foundation) {
+      this._destroy();
+    }
+
+    this.init();
+    this._changeDetectorRef.markForCheck();
+
+    if (this._outlined) {
+      this._foundation.layout();
+    }
   }
 
-  private _shouldFloatLabel(): boolean {
-    return this._floatingLabel && this.getValue();
+  private _initializeSelection(): void {
+    // Defer setting the value in order to avoid the "Expression
+    // has changed after it was checked" errors from Angular.
+    Promise.resolve().then(() => {
+      const value = this.ngControl ? this.ngControl.value : this._value;
+      if (value) {
+        this.setSelectionByValue(value);
+        this._foundation.layout();
+      }
+    });
+  }
+
+  private _initHelperText(): void {
+    const helper = this.helperText;
+    if (helper) {
+      helper.addHelperTextClass(this.controlType);
+      helper.initFoundation(MDCSelectHelperTextFoundation);
+    }
   }
 
   private _initRipple(): void {
-    if (!this._ripple.initialized && !this.outlined) {
+    if (!this.outlined) {
       this._ripple.init({
-        surface: this._getHostElement(),
-        activator: this._getInputElement()
+        surface: this.elementRef.nativeElement,
+        activator: this._nativeSelect ? this._nativeSelect.nativeElement : this._selectedText.nativeElement
       });
-    } else {
+    }
+  }
+
+  private _destroy(): void {
+    this._destroyed.next();
+    this._destroyed.complete();
+
+    if (this._lineRipple) {
+      this._lineRipple.destroy();
+    }
+    if (this._ripple) {
       this._ripple.destroy();
     }
   }
 
-  private _initLineRipple(): void {
-    if (this._outlined) { return; }
-    this._lineRippleSubscription = this.lineRippleEvents.pipe()
-      .subscribe((evt: MouseEvent | TouchEvent) => {
-        if (evt instanceof MouseEvent) {
-          this._setRippleCenter(evt.clientX, evt.target!);
-        } else {
-          const clientX = evt.touches[0] && evt.touches[0].clientX;
-          this._setRippleCenter(clientX, evt.target!);
-        }
-      });
+  private _isEnhancedVariant(): boolean {
+    return !!this._list;
+  }
+
+  private _enhancedSelectSetup(): void {
+    if (this._isEnhancedVariant()) {
+      this._menu.elementRef.nativeElement.classList.add('mdc-select__menu');
+      this._menu.hoistToBody = true;
+      this._menu.anchorElement = this._getHostElement();
+      this._menu.wrapFocus = false;
+
+      this._list.useSelectedClass = true;
+      this._list.singleSelection = true;
+
+      // Subscribe to menu opened event
+      this._menu.opened.pipe(takeUntil(this._destroyed))
+        .subscribe(() => {
+          const selectedIndex = this._list.getSelectedIndex();
+          if (selectedIndex > -1) {
+            this._list.items.toArray()[selectedIndex].focus();
+          }
+        });
+
+      // Subscribe to menu closed event
+      this._menu.closed.pipe(takeUntil(this._destroyed))
+        .subscribe(() => {
+          this._selectedText.nativeElement.removeAttribute('aria-expanded');
+          if (this._platform.isBrowser) {
+            if (document.activeElement !== this._selectedText.nativeElement) {
+              this._foundation.handleBlur();
+            }
+          }
+        });
+
+      // Subscribe to menu selected event
+      this._list.selectionChange.pipe(takeUntil(this._destroyed))
+        .subscribe((evt: MdcListItemChange) => {
+          this.setSelectionByValue(evt.option.value, true);
+        });
+    }
+  }
+
+  private _hasErrorState(): boolean {
+    if (this.ngControl) {
+      return !this.errorState;
+    }
+
+    if (this.required && !this.disabled) {
+      return this._list.getSelectedIndex() !== -1 && (this.getSelectedIndex() !== 0 || this.value);
+    }
+    return false;
+  }
+
+  private _hasFloatingLabel(): boolean {
+    return this.placeholder && this.floatLabel && (this._floatingLabel || this._notchedOutline) ? true : false;
+  }
+
+  private _getFloatingLabel(): MdcFloatingLabel {
+    return this._floatingLabel || this._notchedOutline.floatingLabel;
   }
 
   /**
-   * Sets the line ripple's transform origin, so that the line ripple activate
-   * animation will animate out from the user's click location. */
-  private _setRippleCenter(clientX: number, target: EventTarget): void {
-    const targetClientRect = (<HTMLElement>target).getBoundingClientRect();
-    const xCoordinate = clientX;
-    const normalizedX = xCoordinate - targetClientRect.left;
-
-    this._lineRipple.setRippleCenter(normalizedX);
+   * Calculates where the line ripple should start based on the x coordinate within the component.
+   */
+  private _getNormalizedXCoordinate(evt: MouseEvent | TouchEvent): number {
+    const targetClientRect = (<HTMLElement>evt.target).getBoundingClientRect();
+    if (evt instanceof MouseEvent) {
+      return evt.clientX - targetClientRect.left;
+    }
+    const clientX = evt.touches[0] && evt.touches[0].clientX;
+    return clientX - targetClientRect.left;
   }
 
   private _setWidth(): void {
-    if (this.options && this.placeholder) {
-      if (this._selectLabel && this._selectLabel.elementRef.nativeElement.textContent) {
-        const labelLength = this._selectLabel.elementRef.nativeElement.textContent.length;
-        this._getHostElement().style.setProperty('width', `${labelLength}rem`);
+    if (this.placeholder && this.autosize) {
+      const labelLength = this.placeholder.length;
+      this._getHostElement().style.setProperty('width', `${labelLength}rem`);
+
+      if (this._isEnhancedVariant()) {
+        this._menu.elementRef.nativeElement.style.setProperty('width', `${labelLength}rem`);
       }
+    } else {
+      this._getHostElement().style.removeProperty('width');
     }
   }
 
   /** Retrieves the select input element. */
   private _getInputElement(): HTMLSelectElement {
-    return this.inputEl.nativeElement;
+    return this._nativeSelect.nativeElement;
   }
 
   /** Retrieves the DOM element of the component host. */

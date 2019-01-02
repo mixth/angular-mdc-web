@@ -15,7 +15,7 @@ import {
   Injectable,
   Injector,
   NgZone,
-  Optional,
+  Optional
 } from '@angular/core';
 import { OverlayConfig } from './overlay-config';
 import { OverlayContainer } from './overlay-container';
@@ -37,7 +37,7 @@ let nextUniqueId = 0;
  */
 @Injectable()
 export class Overlay {
-  private _appRef: ApplicationRef;
+  private _appRef?: ApplicationRef;
 
   constructor(
     /** Scrolling strategies that can be used when creating an overlay. */
@@ -72,7 +72,6 @@ export class Overlay {
     const pane = this._document.createElement('div');
 
     pane.id = `cdk-overlay-${nextUniqueId++}`;
-    pane.classList.add('cdk-overlay-pane');
     host.appendChild(pane);
 
     return pane;

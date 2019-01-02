@@ -2,13 +2,13 @@ import { Component, DebugElement, ViewChild } from '@angular/core';
 import { async, ComponentFixture, TestBed, fakeAsync, flush } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
+import { dispatchFakeEvent } from '../testing/dispatch-events';
+
 import {
   MdcChipsModule,
   MdcChip,
   MdcChipSet,
   MdcChipRemovedEvent,
-  MdcChipIcon,
-  MdcChipInteractionEvent,
   MdcChipSelectionEvent,
   MdcIcon,
   MdcChipSetChange
@@ -45,6 +45,10 @@ describe('Chips', () => {
       expect(testDebugElement.nativeElement.classList).toContain('mdc-chip');
     });
 
+    it('handles transitionend event', fakeAsync(() => {
+      dispatchFakeEvent(testInstance.elementRef.nativeElement, 'transitionend');
+    }));
+
     it('#should have leading icon', () => {
       expect(testInstance.leadingIcon).toBeDefined();
     });
@@ -80,6 +84,10 @@ describe('Chips', () => {
       expect(testComponent.chipRemoved).toHaveBeenCalledTimes(1);
     });
 
+    it('expect disableRipple to be false', () => {
+      expect(testInstance.disableRipple).toBe(false);
+    });
+
     it('handles focus event', () => {
       testInstance.focus();
       fixture.detectChanges();
@@ -100,13 +108,13 @@ describe('Chips', () => {
     it('#should apply primary class modifier', () => {
       testComponent.primary = true;
       fixture.detectChanges();
-      expect(testDebugElement.nativeElement.classList.contains('ng-mdc-chip--primary')).toBe(true);
+      expect(testDebugElement.nativeElement.classList.contains('ngx-mdc-chip--primary')).toBe(true);
     });
 
     it('#should apply secondary class modifier', () => {
       testComponent.secondary = true;
       fixture.detectChanges();
-      expect(testDebugElement.nativeElement.classList.contains('ng-mdc-chip--secondary')).toBe(true);
+      expect(testDebugElement.nativeElement.classList.contains('ngx-mdc-chip--secondary')).toBe(true);
     });
   });
 
@@ -178,12 +186,6 @@ describe('Chips', () => {
       fixture.detectChanges();
       flush();
     }));
-
-    it('#should de-select chip', fakeAsync(() => {
-      testInstance.deselect('newsChip');
-      fixture.detectChanges();
-      flush();
-    }));
   });
 });
 
@@ -202,7 +204,7 @@ describe('Chips', () => {
       <mdc-chip-text>Get Directions</mdc-chip-text>
       <mdc-chip-icon #trailingIcon trailing>more_vert</mdc-chip-icon>
     </mdc-chip>
-    <mdc-chip id="removableChip" [removable]="removable">
+    <mdc-chip id="removableChip" [removable]="removable" [disableRipple]="disableRipple">
       <mdc-chip-text>Get Weather</mdc-chip-text>
     </mdc-chip>
     <mdc-chip id="newsChip">
@@ -219,6 +221,7 @@ class ChipTest {
   input: boolean;
   primary: boolean;
   secondary: boolean;
+  disableRipple: boolean;
 
   @ViewChild('trailingIcon') trailingIcon: MdcIcon;
 

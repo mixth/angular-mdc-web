@@ -8,21 +8,18 @@ import {
   ElementRef,
   NgZone,
   OnDestroy,
-  OnInit,
   QueryList,
-  ViewChild,
   ViewEncapsulation
 } from '@angular/core';
 import { merge, Observable, fromEvent, Subject, Subscription } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
-import { Platform, toBoolean, ESCAPE } from '@angular-mdc/web/common';
+import { Platform } from '@angular-mdc/web/common';
 
 import {
   MdcDialogButton,
   MdcDialogContent,
-  MdcDialogSurface,
-  MdcDialogScrim
+  MdcDialogSurface
 } from './dialog-directives';
 import { MdcDialogRef } from './dialog-ref';
 import { MdcDialogConfig } from './dialog-config';
@@ -34,7 +31,7 @@ import {
   isScrollable,
   areTopsMisaligned
 } from '@material/dialog/util';
-import { strings, numbers } from '@material/dialog/constants';
+import { strings } from '@material/dialog/constants';
 import { closest, matches } from '@material/dom/ponyfill';
 import { MDCDialogFoundation } from '@material/dialog/index';
 
@@ -72,12 +69,12 @@ export class MdcDialogComponent implements AfterViewInit, OnDestroy {
 
   config: MdcDialogConfig;
 
-  @ContentChild(MdcDialogSurface) _surface: MdcDialogSurface;
-  @ContentChild(MdcDialogContent) _content: MdcDialogContent;
-  @ContentChildren(MdcDialogButton, { descendants: true }) _buttons: QueryList<MdcDialogButton>;
+  @ContentChild(MdcDialogSurface) _surface!: MdcDialogSurface;
+  @ContentChild(MdcDialogContent) _content!: MdcDialogContent;
+  @ContentChildren(MdcDialogButton, { descendants: true }) _buttons!: QueryList<MdcDialogButton>;
 
-  private _layoutEventSubscription: Subscription;
-  private _interactionEventSubscription: Subscription;
+  private _layoutEventSubscription: Subscription | null = null;
+  private _interactionEventSubscription: Subscription | null = null;
 
   /** Combined stream of all of the dialog layout events. */
   get layoutEvents(): Observable<any> {
@@ -115,7 +112,8 @@ export class MdcDialogComponent implements AfterViewInit, OnDestroy {
           this._focusTrap.deactivate();
         }
       },
-      isContentScrollable: () => !!this._content && this._scrollable && isScrollable(this._content.elementRef.nativeElement),
+      isContentScrollable: () =>
+        !!this._content && this._scrollable && isScrollable(this._content.elementRef.nativeElement),
       areButtonsStacked: () => areTopsMisaligned(this._buttons),
       getActionFromEvent: (event: Event) => {
         const element = closest(event.target, `[${strings.ACTION_ATTRIBUTE}]`);
@@ -136,7 +134,7 @@ export class MdcDialogComponent implements AfterViewInit, OnDestroy {
     };
   }
 
-  private _foundation: {
+  private _foundation!: {
     init(): void,
     destroy(): void,
     open(): void,
@@ -192,6 +190,9 @@ export class MdcDialogComponent implements AfterViewInit, OnDestroy {
 
     if (this._layoutEventSubscription) {
       this._layoutEventSubscription.unsubscribe();
+    }
+    if (this._interactionEventSubscription) {
+      this._interactionEventSubscription.unsubscribe();
     }
 
     if (this._foundation) {

@@ -33,7 +33,7 @@ import {
   encapsulation: ViewEncapsulation.None
 })
 export class MdcTabIndicator implements AfterViewInit {
-  private _isFoundationInit: boolean;
+  private _isFoundationInit: boolean = false;
 
   @Input()
   get active(): boolean { return this._active; }
@@ -44,25 +44,28 @@ export class MdcTabIndicator implements AfterViewInit {
       this._active ? this.activate(this.computeContentClientRect()) : this.deactivate();
     }
   }
-  private _active: boolean;
+  private _active: boolean = false;
 
   @Input()
   get fade(): boolean { return this._fade; }
   set fade(value: boolean) {
-    this._fade = toBoolean(value);
-    this._initFoundation();
+    const newValue = toBoolean(value);
+    if (newValue !== this._fade) {
+      this._fade = newValue;
+      this._initFoundation();
+    }
   }
-  private _fade: boolean;
+  private _fade: boolean = false;
 
   @Input()
-  get icon(): string { return this._icon; }
-  set icon(value: string) {
+  get icon(): string | null { return this._icon; }
+  set icon(value: string | null) {
     this._icon = value;
     this._updateContentClasses();
   }
-  private _icon: string;
+  private _icon: string | null = null;
 
-  @ViewChild('content') content: ElementRef<HTMLElement>;
+  @ViewChild('content') content!: ElementRef<HTMLElement>;
 
   private _createAdapter() {
     return {
@@ -73,11 +76,12 @@ export class MdcTabIndicator implements AfterViewInit {
 
         return this.content.nativeElement.getBoundingClientRect();
       },
-      setContentStyleProperty: (propName: string, value: string) => this.content.nativeElement.style.setProperty(propName, value)
+      setContentStyleProperty: (propName: string, value: string) =>
+        this.content.nativeElement.style.setProperty(propName, value)
     };
   }
 
-  private _foundation: {
+  private _foundation!: {
     init(): void,
     computeContentClientRect(): ClientRect,
     activate(previousIndicatorClientRect: ClientRect): void,

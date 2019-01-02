@@ -7,6 +7,7 @@ import {
   EventEmitter,
   forwardRef,
   Input,
+  Optional,
   OnDestroy,
   Output,
   Provider,
@@ -18,7 +19,7 @@ import { NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
 import { toBoolean } from '@angular-mdc/web/common';
 import { MdcRipple } from '@angular-mdc/web/ripple';
 
-import { MdcFormFieldControl } from '@angular-mdc/web/form-field';
+import { MdcFormField, MdcFormFieldControl } from '@angular-mdc/web/form-field';
 
 import { MDCSwitchFoundation } from '@material/switch/index';
 
@@ -72,11 +73,11 @@ let nextUniqueId = 0;
   encapsulation: ViewEncapsulation.None,
   providers: [
     MDC_SWITCH_CONTROL_VALUE_ACCESSOR,
-    [{ provide: MdcFormFieldControl, useExisting: MdcSwitch }],
+    { provide: MdcFormFieldControl, useExisting: MdcSwitch },
     MdcRipple
   ]
 })
-export class MdcSwitch implements MdcFormFieldControl<any>, AfterViewInit, OnDestroy {
+export class MdcSwitch implements MdcFormFieldControl<any>, AfterViewInit, ControlValueAccessor, OnDestroy {
   private _uniqueId: string = `mdc-switch-${++nextUniqueId}`;
 
   @Input() id: string = this._uniqueId;
@@ -87,23 +88,23 @@ export class MdcSwitch implements MdcFormFieldControl<any>, AfterViewInit, OnDes
   set checked(value: boolean) {
     this.setChecked(value);
   }
-  private _checked: boolean;
+  private _checked: boolean = false;
 
   @Input()
   get disabled(): boolean { return this._disabled; }
   set disabled(value: boolean) {
     this.setDisabledState(value);
   }
-  private _disabled: boolean;
+  private _disabled: boolean = false;
 
   /** The value attribute of the native input element */
-  @Input() value: string;
+  @Input() value: string | null = null;
 
   @Input() tabIndex: number = 0;
   @Output() readonly change: EventEmitter<MdcSwitchChange> = new EventEmitter<MdcSwitchChange>();
 
-  @ViewChild('input') inputElement: ElementRef<HTMLInputElement>;
-  @ViewChild('thumbUnderlay') thumbUnderlay: ElementRef<HTMLElement>;
+  @ViewChild('input') inputElement!: ElementRef<HTMLInputElement>;
+  @ViewChild('thumbUnderlay') thumbUnderlay!: ElementRef<HTMLElement>;
 
   /** View -> model callback called when value changes */
   _onChange: (value: any) => void = () => { };
@@ -113,7 +114,7 @@ export class MdcSwitch implements MdcFormFieldControl<any>, AfterViewInit, OnDes
 
   get inputId(): string { return `${this.id || this._uniqueId}-input`; }
 
-  createAdapter() {
+  private _createAdapter() {
     return {
       addClass: (className: string) => this._getHostElement().classList.add(className),
       removeClass: (className: string) => this._getHostElement().classList.remove(className),
@@ -127,12 +128,18 @@ export class MdcSwitch implements MdcFormFieldControl<any>, AfterViewInit, OnDes
     setChecked(checked: boolean): void,
     setDisabled(disabled: boolean): void,
     handleChange(evt: Event): void
-  } = new MDCSwitchFoundation(this.createAdapter());
+  } = new MDCSwitchFoundation(this._createAdapter());
 
   constructor(
     private _changeDetectorRef: ChangeDetectorRef,
     public ripple: MdcRipple,
-    public elementRef: ElementRef<HTMLElement>) { }
+    public elementRef: ElementRef<HTMLElement>,
+    @Optional() private _parentFormField: MdcFormField) {
+
+    if (this._parentFormField) {
+      _parentFormField.elementRef.nativeElement.classList.add('mdc-form-field');
+    }
+  }
 
   ngAfterViewInit(): void {
     this._foundation.init();

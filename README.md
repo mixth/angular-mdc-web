@@ -3,31 +3,25 @@
 [![npm version](https://badge.fury.io/js/%40angular-mdc%2Fweb.svg)](https://badge.fury.io/js/%40angular-mdc%2Fweb)
 [![Build Status](https://travis-ci.com/trimox/angular-mdc-web.svg?branch=master)](https://travis-ci.com/trimox/angular-mdc-web)
 [![codecov](https://codecov.io/gh/trimox/angular-mdc-web/branch/master/graph/badge.svg)](https://codecov.io/gh/trimox/angular-mdc-web)
-[![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/angular-mdc/Lobby)
+[![Chat](https://img.shields.io/discord/522582556814737419.svg)](https://discord.gg/dm6bGvA)
 
-[Demo App](https://trimox.github.io/angular-mdc-web/) with API, documentation and examples
+[Demos, documentation and guides](https://trimox.github.io/angular-mdc-web/)
 
 Incorporating [Google Material Components](https://github.com/material-components/material-components-web) for a faithful and accurate representation of Material Design as envisioned on the web platform.
 
 #### Quick Links
 *  [Changelog](https://github.com/trimox/angular-mdc-web/blob/master/CHANGELOG.md)
-*  [Getting Started guides](#getstarted)
-*  [Documentation and examples](https://trimox.github.io/angular-mdc-web/)
+*  [Getting Started Guide](https://github.com/trimox/angular-mdc-web/blob/master/docs/getting-started.md)
+*  [Demos, documentation and guides](https://trimox.github.io/angular-mdc-web/)
 *  [Contributing](https://github.com/trimox/angular-mdc-web/blob/master/CONTRIBUTING.md)
 *  [Developer guide](https://github.com/trimox/angular-mdc-web/blob/master/docs/developer.md)
+*  [MDC Web Roadmap](https://github.com/material-components/material-components-web/blob/master/ROADMAP.md)
 
 > Note: Angular MDC follows semver and is still in version 0.x, which means it is regularly subject to
 > breaking changes. A list of changes is always available in the [CHANGELOG](./CHANGELOG.md).
 
-## Install Angular MDC
-```
-npm i @angular-mdc/web
-```
-
 ## <a name="getstarted"></a> Getting started
-Check out our [Getting Started guide](https://github.com/trimox/angular-mdc-web/blob/master/docs/getting-started.md) to begin adopting  Angular MDC in your project.
-
-Using Angular CLI? Try our [Angular CLI - step by step guide](https://github.com/trimox/angular-mdc-web/blob/master/docs/guide-angular-cli.md).
+View our [Getting Started Guide](https://github.com/trimox/angular-mdc-web/blob/master/docs/getting-started.md) to begin using Angular MDC in your project.
 
 ## Material Design Components
 Developed using Google Material Components [foundations and adapters](https://github.com/material-components/material-components-web/blob/master/docs/integrating-into-frameworks.md#the-advanced-approach-using-foundations-and-adapters).
@@ -57,8 +51,7 @@ Developed using Google Material Components [foundations and adapters](https://gi
 | snackbar | Available | [View](https://trimox.github.io/angular-mdc-web/#/snackbar-demo) |
 | switch | Available | [View](https://trimox.github.io/angular-mdc-web/#/switch-demo) |
 | tabs | Available | [View](https://trimox.github.io/angular-mdc-web/#/tabs-demo) |
-| textfield | Available | [View](https://trimox.github.io/angular-mdc-web/#/textfield-demo) |
-| theme | Available | [View](https://trimox.github.io/angular-mdc-web/#/theme-demo) |
+| text-field | Available | [View](https://trimox.github.io/angular-mdc-web/#/text-field-demo) |
 | top-app-bar | Available | [View](https://trimox.github.io/angular-mdc-web/#/top-app-bar-demo) |
 | typography | Available | [View](https://trimox.github.io/angular-mdc-web/#/typography-demo) |
 

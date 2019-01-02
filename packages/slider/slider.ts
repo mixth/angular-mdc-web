@@ -14,6 +14,7 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
+
 import { toNumber, toBoolean, Platform } from '@angular-mdc/web/common';
 
 import { strings } from '@material/slider/constants';
@@ -51,7 +52,10 @@ export class MdcSliderChange {
       <div *ngIf="discrete" class="mdc-slider__pin">
         <span #pin class="mdc-slider__pin-value-marker"></span>
       </div>
-      <svg class="mdc-slider__thumb" width="21" height="21">
+      <svg #sliderThumb
+        class="mdc-slider__thumb"
+        width="21" height="21"
+        focusable="false">
         <circle cx="10.5" cy="10.5" r="7.875"></circle>
       </svg>
       <div class="mdc-slider__focus-ring"></div>
@@ -67,14 +71,14 @@ export class MdcSlider implements AfterViewInit, OnDestroy, ControlValueAccessor
   set discrete(value: boolean) {
     this._discrete = toBoolean(value);
   }
-  private _discrete: boolean;
+  private _discrete: boolean = false;
 
   @Input()
   get markers(): boolean { return this._markers; }
   set markers(value: boolean) {
     this._markers = toBoolean(value);
   }
-  private _markers: boolean;
+  private _markers: boolean = false;
 
   @Input()
   get min(): number { return this._min; }
@@ -133,10 +137,11 @@ export class MdcSlider implements AfterViewInit, OnDestroy, ControlValueAccessor
   @Output() readonly change: EventEmitter<MdcSliderChange> = new EventEmitter<MdcSliderChange>();
   @Output() readonly input: EventEmitter<MdcSliderChange> = new EventEmitter<MdcSliderChange>();
 
-  @ViewChild('thumbcontainer') thumbContainer: ElementRef<HTMLElement>;
-  @ViewChild('track') track: ElementRef<HTMLElement>;
-  @ViewChild('pin') pinValueMarker: ElementRef;
-  @ViewChild('markercontainer') trackMarkerContainer: ElementRef;
+  @ViewChild('thumbcontainer') thumbContainer!: ElementRef<HTMLElement>;
+  @ViewChild('sliderThumb') _sliderThumb!: ElementRef<HTMLElement>;
+  @ViewChild('track') track!: ElementRef<HTMLElement>;
+  @ViewChild('pin') pinValueMarker!: ElementRef;
+  @ViewChild('markercontainer') trackMarkerContainer!: ElementRef<HTMLElement>;
 
   /** View -> model callback called when value changes */
   _onChange: (value: any) => void = () => { };
@@ -227,7 +232,7 @@ export class MdcSlider implements AfterViewInit, OnDestroy, ControlValueAccessor
     };
   }
 
-  private _foundation: {
+  private _foundation!: {
     init(): void,
     destroy(): void,
     setDisabled(disabled: boolean): void,

@@ -45,8 +45,8 @@ export type MdcDrawerType = 'permanent' | 'dismissible' | 'modal';
   encapsulation: ViewEncapsulation.None
 })
 export class MdcDrawerHeader {
-  @Input() title: string;
-  @Input() subtitle: string;
+  @Input() title?: string;
+  @Input() subtitle?: string;
 
   constructor(public elementRef: ElementRef<HTMLElement>) { }
 }
@@ -91,9 +91,9 @@ export class MdcDrawer implements AfterViewInit, OnDestroy {
   /** Emits whenever the component is destroyed. */
   private _destroy = new Subject<void>();
 
-  private _initialized: boolean;
-  private _previousFocus: Element | null;
-  private _scrimElement: Element | null;
+  private _initialized: boolean = false;
+  private _previousFocus: Element | null = null;
+  private _scrimElement: Element | null = null;
 
   private _focusTrapFactory: any;
   private _focusTrap: any;
@@ -107,7 +107,7 @@ export class MdcDrawer implements AfterViewInit, OnDestroy {
     }
     this._changeDetectorRef.markForCheck();
   }
-  private _open: boolean;
+  private _open: boolean = false;
 
   @Input()
   get drawer(): string { return this._drawer; }
@@ -129,19 +129,19 @@ export class MdcDrawer implements AfterViewInit, OnDestroy {
   @Output() readonly opened: EventEmitter<void> = new EventEmitter<void>();
   @Output() readonly closed: EventEmitter<void> = new EventEmitter<void>();
 
-  @ContentChildren(MdcList, { descendants: true }) _list: QueryList<MdcList>;
-  @ContentChildren(MdcListItem, { descendants: true }) _listItems: QueryList<MdcListItem>;
+  @ContentChildren(MdcList, { descendants: true }) _list!: QueryList<MdcList>;
+  @ContentChildren(MdcListItem, { descendants: true }) _listItems!: QueryList<MdcListItem>;
 
-  private _scrimSubscription: Subscription | null;
+  private _scrimSubscription: Subscription | null = null;
 
   /** Subscription to a list. */
-  private _listSubscription: Subscription;
+  private _listSubscription: Subscription | null = null;
 
   get modal(): boolean { return this.drawer === 'modal'; }
   get dismissible(): boolean { return this.drawer === 'dismissible'; }
   get permanent(): boolean { return this.drawer === 'permanent'; }
 
-  createAdapter() {
+  private _createAdapter() {
     return {
       addClass: (className: string) => this._getHostElement().classList.add(className),
       removeClass: (className: string) => this._getHostElement().classList.remove(className),
@@ -186,7 +186,7 @@ export class MdcDrawer implements AfterViewInit, OnDestroy {
     isOpen(): boolean,
     handleKeydown(evt: KeyboardEvent): void,
     handleTransitionEnd(evt: TransitionEvent): void
-  } = new MDCDismissibleDrawerFoundation(this.createAdapter());
+  } = new MDCDismissibleDrawerFoundation(this._createAdapter());
 
   constructor(
     private _platform: Platform,
@@ -263,9 +263,9 @@ export class MdcDrawer implements AfterViewInit, OnDestroy {
     this._removeDrawerModifiers();
 
     if (this.modal) {
-      this._foundation = new MDCModalDrawerFoundation(this.createAdapter());
+      this._foundation = new MDCModalDrawerFoundation(this._createAdapter());
     } else {
-      this._foundation = new MDCDismissibleDrawerFoundation(this.createAdapter());
+      this._foundation = new MDCDismissibleDrawerFoundation(this._createAdapter());
     }
 
     if (!this.permanent) {

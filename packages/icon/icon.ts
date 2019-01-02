@@ -34,11 +34,12 @@ export interface MdcIconLocation {
 
 export function MDC_ICON_LOCATION_FACTORY(): MdcIconLocation {
   const _document = inject(DOCUMENT);
+  const _location = _document ? _document.location : null;
 
   return {
     // Note that this needs to be a function, rather than a property, because Angular
     // will only resolve it once, but we want the current path on each call.
-    getPathname: () => (_document && _document.location && _document.location.pathname) || ''
+    getPathname: () => _location ? (_location.pathname + _location.search) : ''
   };
 }
 
@@ -80,8 +81,8 @@ const funcIriPattern = /^url\(['"]?#(.*?)['"]?\)$/;
   host: {
     '[attr.role]': 'role',
     '[attr.tabindex]': 'tabIndex',
-    'class': 'ng-mdc-icon',
-    '[class.ng-mdc-icon--clickable]': 'clickable'
+    'class': 'ngx-mdc-icon',
+    '[class.ngx-mdc-icon--clickable]': 'clickable'
   },
   template: '<ng-content></ng-content>',
   encapsulation: ViewEncapsulation.None,
@@ -101,7 +102,7 @@ export class MdcIcon implements AfterViewChecked, OnDestroy, OnChanges, OnInit {
   @Input() svgIcon?: string;
 
   @Input() role: string | null = 'img';
-  @Input() tabIndex: number | null;
+  @Input() tabIndex: number | null = null;
 
   /** Font set that the icon is a part of. */
   @Input()
@@ -132,7 +133,7 @@ export class MdcIcon implements AfterViewChecked, OnDestroy, OnChanges, OnInit {
       this.role = null;
     }
   }
-  private _clickable: boolean;
+  private _clickable: boolean = false;
 
   constructor(
     public elementRef: ElementRef<HTMLElement>,

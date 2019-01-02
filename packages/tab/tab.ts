@@ -72,7 +72,7 @@ export class MdcTabIcon {
     '[class.mdc-tab--active]': 'active',
     '[class.mdc-tab--stacked]': 'stacked',
     '[class.mdc-tab--min-width]': 'fixed',
-    '[class.ng-mdc-tab--disabled]': 'disabled'
+    '[class.ngx-mdc-tab--disabled]': 'disabled'
   },
   template: `
   <div #content class="mdc-tab__content">
@@ -98,40 +98,56 @@ export class MdcTab implements OnInit, OnDestroy {
   /** Emits whenever the component is destroyed. */
   private _destroy = new Subject<void>();
 
-  @Input() label: string;
-  @Input() icon: string;
+  @Input() label?: string;
+  @Input() icon?: string;
 
   @Input()
   get stacked(): boolean { return this._stacked; }
   set stacked(value: boolean) {
-    this._stacked = toBoolean(value);
+    const newValue = toBoolean(value);
+    if (newValue !== this._stacked) {
+      this._stacked = newValue;
+    }
   }
-  private _stacked: boolean;
+  private _stacked: boolean = false;
 
   @Input()
   get fixed(): boolean { return this._fixed; }
   set fixed(value: boolean) {
-    this._fixed = toBoolean(value);
-    this._changeDetectorRef.detectChanges();
+    const newValue = toBoolean(value);
+    if (newValue !== this._fixed) {
+      this._fixed = newValue;
+      this._changeDetectorRef.detectChanges();
+    }
   }
-  private _fixed: boolean;
+  private _fixed: boolean = false;
 
   @Input()
   get disabled(): boolean { return this._disabled; }
   set disabled(value: boolean) {
     this._disabled = toBoolean(value);
-    this._changeDetectorRef.detectChanges();
   }
-  private _disabled: boolean;
+  private _disabled: boolean = false;
+
+  @Input()
+  get focusOnActivate(): boolean { return this._focusOnActivate; }
+  set focusOnActivate(value: boolean) {
+    const newValue = toBoolean(value);
+    if (newValue !== this._focusOnActivate) {
+      this._focusOnActivate = newValue;
+      this._foundation.setFocusOnActivate(this._focusOnActivate);
+    }
+  }
+  private _focusOnActivate: boolean = false;
 
   @Output() readonly interacted: EventEmitter<MdcTabInteractedEvent> =
     new EventEmitter<MdcTabInteractedEvent>();
 
-  @ViewChild('content') content: ElementRef;
-  @ViewChild('ripplesurface') rippleSurface: ElementRef;
-  @ViewChild(MdcTabIndicator) tabIndicator: MdcTabIndicator;
+  @ViewChild('content') content!: ElementRef;
+  @ViewChild('ripplesurface') rippleSurface!: ElementRef;
+  @ViewChild(MdcTabIndicator) tabIndicator!: MdcTabIndicator;
 
-  createAdapter() {
+  private _createAdapter() {
     return {
       setAttr: (attr: string, value: string) => this._getHostElement().setAttribute(attr, value),
       addClass: (className: string) => this._getHostElement().classList.add(className),
@@ -144,7 +160,8 @@ export class MdcTab implements OnInit, OnDestroy {
       getOffsetLeft: () => this._getHostElement().offsetLeft,
       getOffsetWidth: () => this._getHostElement().offsetWidth,
       getContentOffsetLeft: () => this.content.nativeElement.offsetLeft,
-      getContentOffsetWidth: () => this.content.nativeElement.offsetWidth
+      getContentOffsetWidth: () => this.content.nativeElement.offsetWidth,
+      focus: () => this._getHostElement().focus()
     };
   }
 
@@ -154,8 +171,9 @@ export class MdcTab implements OnInit, OnDestroy {
     activate(previousIndicatorClientRect: ClientRect): void,
     deactivate(): void,
     computeDimensions(): any,
-    handleClick(): void
-  } = new MDCTabFoundation(this.createAdapter());
+    handleClick(): void,
+    setFocusOnActivate(focusOnActivate: boolean): void
+  } = new MDCTabFoundation(this._createAdapter());
 
   constructor(
     private _ngZone: NgZone,

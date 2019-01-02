@@ -2,7 +2,6 @@ import {
   AfterContentInit,
   Directive,
   ElementRef,
-  EventEmitter,
   Input,
   NgZone,
   OnDestroy
@@ -24,9 +23,9 @@ export class MdcFloatingLabel implements AfterContentInit, OnDestroy {
   /** Emits whenever the component is destroyed. */
   private _destroy = new Subject<void>();
 
-  @Input() for: string;
+  @Input() for?: string;
 
-  createAdapter() {
+  private _createAdapter() {
     return {
       addClass: (className: string) => this._getHostElement().classList.add(className),
       removeClass: (className: string) => this._getHostElement().classList.remove(className),
@@ -34,7 +33,7 @@ export class MdcFloatingLabel implements AfterContentInit, OnDestroy {
     };
   }
 
-  private _foundation: {
+  private _foundation!: {
     getWidth(): number,
     shake(shouldShake: boolean): void,
     float(shouldFloat: boolean): void,
@@ -46,7 +45,7 @@ export class MdcFloatingLabel implements AfterContentInit, OnDestroy {
     public elementRef: ElementRef<HTMLElement>) { }
 
   ngAfterContentInit(): void {
-    this._foundation = new MDCFloatingLabelFoundation(this.createAdapter());
+    this._foundation = new MDCFloatingLabelFoundation(this._createAdapter());
     this._loadListeners();
   }
 

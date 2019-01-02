@@ -51,6 +51,10 @@ describe('MdcDrawer', () => {
       expect(testInstance.open).toBe(false);
     });
 
+    it('handles transitionend event', fakeAsync(() => {
+      dispatchFakeEvent(testInstance.elementRef.nativeElement, 'transitionend');
+    }));
+
     it('#should set permanent if empty', () => {
       testComponent.drawer = null;
       fixture.detectChanges();
@@ -122,10 +126,9 @@ describe('MdcDrawer', () => {
       fixture.detectChanges();
     }));
 
-    it('#should handle list item keydown', fakeAsync(() => {
+    it('#should handle list item keydown', () => {
       testComponent.open = true;
       fixture.detectChanges();
-      tick(500);
 
       const listItemDebugElement = fixture.debugElement.query(By.directive(MdcListItem));
       const listItemInstance = listItemDebugElement.injector.get<MdcListItem>(MdcListItem);
@@ -138,7 +141,7 @@ describe('MdcDrawer', () => {
 
       dispatchKeyboardEvent(listItemInstance.getListItemElement(), 'keydown', TAB);
       fixture.detectChanges();
-    }));
+    });
   });
 });
 

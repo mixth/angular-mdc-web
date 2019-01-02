@@ -45,7 +45,7 @@ describe('MdcListModule', () => {
     it('#should apply class border', () => {
       testComponent.isBordered = true;
       fixture.detectChanges();
-      expect(testDebugElement.nativeElement.classList.contains('ng-mdc-list--border')).toBe(true);
+      expect(testDebugElement.nativeElement.classList.contains('ngx-mdc-list--border')).toBe(true);
     });
 
     it('#should apply class dense', () => {
@@ -146,6 +146,14 @@ describe('MdcListModule', () => {
 
       listItemInstance.getListItemElement().click();
       fixture.detectChanges();
+    });
+
+    it('#should set focus to list item index (0)', () => {
+      const listItemDebugElement = fixture.debugElement.query(By.directive(MdcListItem));
+
+      testInstance.focusItemAtIndex(0);
+      fixture.detectChanges();
+      expect(document.activeElement).toBe(listItemDebugElement.nativeElement, 'Expected focus to be on list item');
     });
 
     it('#should set focus to list item', () => {

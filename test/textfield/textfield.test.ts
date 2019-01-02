@@ -1,10 +1,12 @@
 import { Component, DebugElement } from '@angular/core';
-import { async, ComponentFixture, fakeAsync, flushMicrotasks, TestBed, tick, flush } from '@angular/core/testing';
-import { FormControl, FormsModule, NgModel } from '@angular/forms';
+import { async, ComponentFixture, fakeAsync, TestBed, flush, tick } from '@angular/core/testing';
+import { FormsModule } from '@angular/forms';
 import { By } from '@angular/platform-browser';
 
 import {
+  dispatchFakeEvent,
   dispatchTouchEvent,
+  dispatchMouseEvent,
   dispatchKeyboardEvent
 } from '../testing/dispatch-events';
 
@@ -97,6 +99,18 @@ describe('MdcTextField', () => {
       expect(textFieldInstance.disabled).toBe(true);
     }));
 
+    it('#should not be read only', fakeAsync(() => {
+      expect(textFieldInstance.readonly).toBeFalsy();
+    }));
+
+    it('#should be read only', fakeAsync(() => {
+      testComponent.readonly = true;
+      fixture.detectChanges();
+      flush();
+
+      expect(textFieldInstance.readonly).toBe(true);
+    }));
+
     it('#should set validity based on input element validity', fakeAsync(() => {
       textFieldInstance.valid = true;
       fixture.detectChanges();
@@ -105,40 +119,10 @@ describe('MdcTextField', () => {
       expect(textFieldInstance.valid).toBe(true);
     }));
 
-    it('#should set helper content', fakeAsync(() => {
-      expect(textFieldInstance.helperText.setContent('test'));
-    }));
-
-    it('#should call onInput', () => {
-      expect(textFieldInstance.onInput('test'));
-      fixture.detectChanges();
-    });
-
     it('#should call onBlur', () => {
       expect(textFieldInstance.onBlur());
       fixture.detectChanges();
     });
-
-    it('#should show to screen reader', () => {
-      expect(textFieldInstance.helperText.showToScreenReader());
-    });
-
-    it('#should turn on validation errors', () => {
-      expect(textFieldInstance.helperText.setValidity(true));
-    });
-
-    it('#should set validation to true', () => {
-      textFieldInstance.helperText.validation = true;
-      fixture.detectChanges();
-      expect(textFieldInstance.helperText.validation).toBe(true);
-      expect(textFieldInstance.isBadInput()).toBe(false);
-    });
-
-    it('#should set persistent to true', fakeAsync(() => {
-      textFieldInstance.helperText.persistent = true;
-      fixture.detectChanges();
-      expect(textFieldInstance.helperText.persistent).toBe(true);
-    }));
 
     it('#should set required to true', fakeAsync(() => {
       testComponent.required = true;
@@ -154,11 +138,18 @@ describe('MdcTextField', () => {
       flush();
 
       expect(textFieldInstance.useNativeValidation).toBe(true);
+      expect(textFieldInstance.isBadInput()).toBe(false);
     }));
 
     it('#should set style shake to true', fakeAsync(() => {
       expect(textFieldInstance._floatingLabel.shake(true));
       fixture.detectChanges();
+
+      testComponent.validation = true;
+      fixture.detectChanges();
+      testComponent.persistent = true;
+      fixture.detectChanges();
+      expect(textFieldInstance.helperText.persistent).toBe(true);
     }));
 
     it('#should focus on underlying input element when focus() is called', fakeAsync(() => {
@@ -193,6 +184,17 @@ describe('MdcTextField', () => {
       fixture.detectChanges();
     }));
 
+    it('handles animationend event', fakeAsync(() => {
+      dispatchFakeEvent(textFieldInstance._floatingLabel.elementRef.nativeElement, 'animationend');
+    }));
+
+    it('handles transitionend event', fakeAsync(() => {
+      testComponent.outlined = false;
+      fixture.detectChanges();
+
+      dispatchFakeEvent(textFieldInstance._lineRipple.elementRef.nativeElement, 'transitionend');
+    }));
+
     it('expect trailing icon to be defined', fakeAsync(() => {
       expect(textFieldInstance.trailingIcon).toBeDefined();
     }));
@@ -222,6 +224,14 @@ describe('MdcTextField', () => {
       expect(testInstance.value).toBe('foo');
     }));
 
+    it('#should set helperText to null', fakeAsync(() => {
+      testInstance.helperText = null;
+      fixture.detectChanges();
+      flush();
+
+      expect(testInstance.helperText).toBeNull();
+    }));
+
     it('#should check for browser', fakeAsync(() => {
       platform.isBrowser = false;
       expect(testInstance.focused).toBe(false);
@@ -232,12 +242,18 @@ describe('MdcTextField', () => {
       testInstance._input.nativeElement.focus();
       fixture.detectChanges();
 
-      dispatchKeyboardEvent(testInstance._input.nativeElement, 'keyup', A);
+      dispatchKeyboardEvent(textFieldNativeElement, 'keyup', A);
       fixture.detectChanges();
 
-      dispatchTouchEvent(testInstance._input.nativeElement, 'touchstart');
+      dispatchTouchEvent(textFieldNativeElement, 'touchstart');
       fixture.detectChanges();
-      flush();
+      tick(300);
+
+      dispatchTouchEvent(textFieldNativeElement, 'touchstart');
+      dispatchMouseEvent(testInstance._input.nativeElement, 'mousedown');
+      dispatchMouseEvent(testInstance._input.nativeElement, 'mousedown');
+      fixture.detectChanges();
+      tick(300);
 
       expect(testInstance.focused).toBe(true);
 
@@ -249,6 +265,7 @@ describe('MdcTextField', () => {
 
 @Component({
   template: `
+  <mdc-form-field>
     <mdc-text-field
       [(ngModel)]="myModel"
       label="Username"
@@ -259,18 +276,15 @@ describe('MdcTextField', () => {
       [value]="value"
       [fullwidth]="isFullwidth"
       [required]="required"
+      [readonly]="readonly"
       [disabled]="disabled"
       [useNativeValidation]="useNativeValidation"
-      [helperText]="userHelper"
       (blur)="onBlur($event)">
       <mdc-icon mdcTextFieldIcon leading>person</mdc-icon>
       <mdc-icon mdcTextFieldIcon trailing>person</mdc-icon>
     </mdc-text-field>
-    <p mdcTextFieldHelperText
-      #userHelper="mdcHelperText"
-      [validation]="true"
-      [persistent]="false">Username is required
-    </p>
+    <mdc-helper-text [validation]="validation" [persistent]="persistent">Username is required</mdc-helper-text>
+  </mdc-form-field>
   `,
 })
 class SimpleTextfield {
@@ -281,7 +295,10 @@ class SimpleTextfield {
   isFullwidth: boolean;
   outlined: boolean;
   required: boolean;
+  readonly: boolean;
   useNativeValidation: boolean = false;
+  validation: boolean;
+  persistent: boolean = true;
 
   onBlur(event: any) { }
 }
@@ -290,8 +307,10 @@ class SimpleTextfield {
   template: `
     <mdc-text-field
       label="Username"
+      [helperText]="helper"
       [value]="value">
     </mdc-text-field>
+    <mdc-helper-text #helper></mdc-helper-text>
   `,
 })
 class TextFieldTestWithValue {

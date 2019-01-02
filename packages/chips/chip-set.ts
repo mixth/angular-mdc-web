@@ -14,7 +14,7 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { merge, Observable, Subject, Subscription } from 'rxjs';
-import { startWith, take, takeUntil } from 'rxjs/operators';
+import { startWith, takeUntil } from 'rxjs/operators';
 
 import { toBoolean } from '@angular-mdc/web/common';
 
@@ -63,7 +63,7 @@ export class MdcChipSet implements AfterContentInit, OnDestroy {
       this.chips.forEach((chip: MdcChip) => chip.choice = this._choice);
     });
   }
-  private _choice: boolean;
+  private _choice: boolean = false;
 
   /**
   * Indicates that the chips in the set are filter chips, which allow multiple selection from a set of options.
@@ -77,7 +77,7 @@ export class MdcChipSet implements AfterContentInit, OnDestroy {
       this.chips.forEach((chip: MdcChip) => chip.filter = this._filter);
     });
   }
-  private _filter: boolean;
+  private _filter: boolean = false;
 
   /**
   * Indicates that the chips in the set are input chips, which enable user input by converting text into chips.
@@ -91,21 +91,21 @@ export class MdcChipSet implements AfterContentInit, OnDestroy {
       this.chips.forEach((chip: MdcChip) => chip.removable = this._input);
     });
   }
-  private _input: boolean;
+  private _input: boolean = false;
 
   @Output() readonly change: EventEmitter<MdcChipSetChange> =
     new EventEmitter<MdcChipSetChange>();
 
-  @ContentChildren(MdcChip, { descendants: true }) chips: QueryList<MdcChip>;
+  @ContentChildren(MdcChip, { descendants: true }) chips!: QueryList<MdcChip>;
 
   /** Subscription to selection events in chips. */
-  private _chipSelectionSubscription: Subscription | null;
+  private _chipSelectionSubscription: Subscription | null = null;
 
   /** Subscription to remove changes in chips. */
-  private _chipRemoveSubscription: Subscription | null;
+  private _chipRemoveSubscription: Subscription | null = null;
 
   /** Subscription to interaction events in chips. */
-  private _chipInteractionSubscription: Subscription | null;
+  private _chipInteractionSubscription: Subscription | null = null;
 
   /** Combined stream of all of the chip selection events. */
   get chipSelections(): Observable<MdcChipSelectionEvent> {
@@ -142,12 +142,10 @@ export class MdcChipSet implements AfterContentInit, OnDestroy {
     init(): void,
     destroy(): void,
     getSelectedChipIds(): string[],
-    toggleSelect(chipId: string): void,
     select(chipId: string): void,
-    deselect(chipId: string): void
-    handleChipInteraction(evt: any): void,
-    handleChipRemoval(evt: any): void,
-    handleChipSelection(evt: any): void
+    handleChipInteraction(chipId: string): void,
+    handleChipRemoval(chipId: string): void,
+    handleChipSelection(chipId: string): void
   } = new MDCChipSetFoundation(this.createAdapter());
 
   constructor(
@@ -187,10 +185,6 @@ export class MdcChipSet implements AfterContentInit, OnDestroy {
     this._foundation.select(chipId);
   }
 
-  deselect(chipId: string): void {
-    this._foundation.deselect(chipId);
-  }
-
   getChipById(chipId: string): MdcChip | undefined {
     return this.chips.find(_ => _.id === chipId);
   }
@@ -221,19 +215,19 @@ export class MdcChipSet implements AfterContentInit, OnDestroy {
   private _listenForChipSelection(): void {
     this._chipSelectionSubscription = this.chipSelections
       .subscribe((event: MdcChipSelectionEvent) => {
-        this._foundation.handleChipSelection(event);
+        this._foundation.handleChipSelection(event.detail.chipId);
         this.change.emit(new MdcChipSetChange(this, event.detail));
       });
   }
 
   private _listenToChipsInteraction(): void {
     this._chipInteractionSubscription = this.chipInteractions
-      .subscribe((event: MdcChipInteractionEvent) => this._foundation.handleChipInteraction(event));
+      .subscribe((event: MdcChipInteractionEvent) => this._foundation.handleChipInteraction(event.detail.chipId));
   }
 
   private _listenToChipsRemoved(): void {
     this._chipRemoveSubscription = this.chipRemoveChanges
-      .subscribe((event: MdcChipRemovedEvent) => this._foundation.handleChipRemoval(event));
+      .subscribe((event: MdcChipRemovedEvent) => this._foundation.handleChipRemoval(event.detail.chipId));
   }
 
   private _findChipIndex(chipId: string): number {

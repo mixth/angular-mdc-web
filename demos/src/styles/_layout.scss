@@ -1,0 +1,107 @@
+//
+// Row
+//
+
+.demo-layout__row {
+  display: flex;
+  flex-flow: row wrap;
+}
+
+.demo-layout__row > * {
+  margin-right: 24px;
+  margin-top: 12px;
+}
+
+.demo-layout__row--no-wrap {
+  display: flex;
+  flex-direction: row;
+}
+
+//
+// Column
+//
+
+.demo-layout__column {
+  display: flex;
+  flex-direction: column;
+}
+
+//
+// Modifiers
+//
+
+.demo-layout--start {
+  align-self: flex-start;
+}
+
+.demo-layout--end {
+  flex-grow: 1;
+  align-self: flex-end;
+}
+
+.demo-layout--center {
+  display: flex;
+  align-content: flex-end;
+  align-items: center;
+  justify-content: center;
+}
+
+//
+// Containers
+//
+
+.demo-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 1rem;
+  min-width: 200px;
+}
+
+.demo-page {
+  padding-left: 10px;
+  padding-bottom: 45px;
+  max-width: calc(70% - 17rem);
+
+  @media (max-width: 1239px) {
+    max-width: calc(100% - 1rem);
+  }
+}
+
+.demo-content {
+  border: 1px solid rgba(0, 0, 0, .15);
+  border-radius: .75rem;
+  margin: 1.5rem;
+  padding: 1rem;
+
+  &__headline {
+    @include mdc-typography(headline6);
+
+    margin-top: .1em;
+    margin-bottom: .3em;
+  }
+}
+
+//
+// Demo top-app-bar
+//
+
+.demo-top-app-bar {
+  @include mdc-top-app-bar-fill-color($color-rally);
+
+  // only apply this style if below top app bar
+  z-index: 7;
+}
+
+//
+// Demo drawer
+//
+
+.demo-drawer {
+  position: fixed;
+
+  .mdc-list-item {
+    cursor: pointer;
+  }
+}
